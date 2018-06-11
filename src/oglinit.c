@@ -1,12 +1,12 @@
 #include <EGL/egl.h>
-#include <bcm_host.h>
 #include <assert.h>
+#include <bcm_host.h>
 #include "oglinit.h"
 
 // setWindowParams sets the window's position, adjusting if need be to
 // prevent it from going fully off screen. Also sets the dispman rects
 // for displaying.
-static void setWindowParams(STATE_T * state, int x, int y, VC_RECT_T * src_rect, VC_RECT_T * dst_rect) {
+static void setWindowParams(EVG_STATE_T * state, int x, int y, VC_RECT_T * src_rect, VC_RECT_T * dst_rect) {
     uint32_t dx, dy, w, h, sx, sy;
 
     // Set source & destination rectangles so that the image is
@@ -68,7 +68,7 @@ static void setWindowParams(STATE_T * state, int x, int y, VC_RECT_T * src_rect,
 
 // oglinit sets the display, OpenVGL context and screen information
 // state holds the display information
-void oglinit(STATE_T * state) {
+void oglinit(EVG_STATE_T * state) {
     int32_t success = 0;
     EGLBoolean result;
     EGLint num_config;
@@ -158,7 +158,7 @@ void oglinit(STATE_T * state) {
 // -ve coords are allowed upto (1-width,1-height),
 // max (screen_width-1,screen_height-1). i.e. at least one pixel must be
 // on the screen.
-void dispmanMoveWindow(STATE_T * state, int x, int y) {
+void dispmanMoveWindow(EVG_STATE_T * state, int x, int y) {
     VC_RECT_T src_rect, dst_rect;
     DISPMANX_UPDATE_HANDLE_T dispman_update;
 
@@ -170,11 +170,11 @@ void dispmanMoveWindow(STATE_T * state, int x, int y) {
 
 // dispmanChangeWindowOpacity changes the window's opacity
 // 0 = transparent, 255 = opaque
-void dispmanChangeWindowOpacity(STATE_T * state, uint32_t alpha) {
+void dispmanChangeWindowOpacity(EVG_STATE_T * state, uint32_t alpha) {
     DISPMANX_UPDATE_HANDLE_T dispman_update;
 
-    if (alpha > 255)
-        alpha = 235;
+    if (alpha > 255) alpha = 255;
+    if (alpha < 0) alpha = 0;
 
     dispman_update = vc_dispmanx_update_start(0);
     // The 1<<1 below means update the alpha value
