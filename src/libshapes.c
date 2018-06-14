@@ -259,7 +259,7 @@ void evgSetStrokeWidth(VGfloat width) {
  */
 void* evgReadScreen(int x, int y, int width, int height) {
     void* buf = malloc(width * height * 4);
-    vgReadPixels(buf, width * 4, VG_sABGR_8888, x, y, width, height);
+    vgReadPixels(buf, width * 4, VG_sRGBA_8888, x, y, width, height);
     return buf;
 }
 
