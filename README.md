@@ -24,20 +24,11 @@ EasyVG is fully compatible with the Raspberry Pi.
 
 EasyVG is capable of rendering text.
 
-To use custom TrueType fonts, developers should convert the font into C code use
-the [font2openvg](https://github.com/mgthomas99/font2openvg) library, and then
-load it the font using `loadfont()`.
-
-*There are plans to support loading a font directly from a `.ttf` file*.
-
-#### Using font2openvg
-
-The `font2openvg` repository contains build instructions for building the
-`font2openvg` source. Once the library is built, compile a TrueType font file.
-For the below demonstrations, it will be assumed that you are using a source
-font file named `DejaVuSans.ttf` and a compiled output named `DejaVuSans.inc`.
-
-Once a font is compiled, it can be included in your code like so:
+To use custom TrueType fonts, developers should convert the font into C code
+using the [font2openvg](https://github.com/mgthomas99/font2openvg) library, and
+then load the font using `loadfont()`. For the below example, it is assumed that
+you are using a source font file named `DejaVuSans.ttf` and a compiled output
+named `DejaVuSans.inc`.
 
 ```c
     #include "DejaVuSans.inc"
