@@ -15,12 +15,13 @@ int main() {
      * `init(&w, &h)`.
      */
     evgInit(&width, &height);
+    evgSetClearColor(0, 0, 0);
     evgBegin(width, height);
     {
-        evgBackground(0, 0, 0);
-        evgFill(44, 77, 232, 1);
-        evgCircle(width / 2, 0, width);
-        evgFill(255, 255, 255, 1);
+        evgClear();
+        evgFillCircle(width / 2, 0, height);
+
+        evgSetFillColor(255, 255, 255, 1);
         evgTextMid(width / 2,
                 height * 0.7,
                 msg,
