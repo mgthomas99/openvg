@@ -15,18 +15,20 @@ int main() {
      * `init(&w, &h)`.
      */
     evgInit(&width, &height);
-    evgSetClearColor(0, 0, 0);
+    evgSetClearColor(0, 0, 0, 1.0f);
     evgBegin(width, height);
     {
         evgClear();
-        evgFillCircle(width / 2, 0, height);
+        evgSetFillColor(0, 255, 0, 1.0f);
+        evgFillCircle(width / 2, 0, width);
 
-        evgSetFillColor(255, 255, 255, 1);
-        evgTextMid(width / 2,
+        evgSetFillColor(255, 255, 255, 1.0f);
+        evgFillTextAligned(width / 2,
                 height * 0.7,
                 msg,
                 SansTypeface,
-                width / 15);
+                width / 15,
+                0);
     }
     evgEnd();
 
