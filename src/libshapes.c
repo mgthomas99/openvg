@@ -20,23 +20,53 @@
 #include "oglinit.h"
 #include "./../lib/DejaVuSans.inc"
 
-
-/**
- *
- */
-void* evgReadScreen(int x, int y, int width, int height) {
-    void* buf = malloc(width * height * 4);
-    vgReadPixels(buf, width * 4, VG_sABGR_8888, x, y, width, height);
-    return buf;
+// RGBA fills a color vectors from a RGBA quad.
+void RGBA(unsigned int r, unsigned int g, unsigned int b, VGfloat a, VGfloat color[4]) {
+    if (r > 255) {
+        r = 0;
+    }
+    if (g > 255) {
+        g = 0;
+    }
+    if (b > 255) {
+        b = 0;
+    }
+    if (a < 0.0 || a > 1.0) {
+        a = 1.0;
+    }
+    color[0] = (VGfloat) r / 255.0f;
+    color[1] = (VGfloat) g / 255.0f;
+    color[2] = (VGfloat) b / 255.0f;
+    color[3] = a;
 }
 
-/**
- *
- */
-void evgDumpScreen(int x, int y, int width, int height, FILE* fp) {
-    void* screenbuffer = evgReadScreen(x, y, width, height);
-    fwrite(screenbuffer, 1, width * height * 4, fp);
-    free(screenbuffer);
+// RGB returns a solid color from a RGB triple
+void RGB(unsigned int r, unsigned int g, unsigned int b, VGfloat color[4]) {
+    RGBA(r, g, b, 1.0f, color);
+}
+// next_utf_char handles UTF encoding
+unsigned char *next_utf8_char(unsigned char *utf8, int *codepoint) {
+    int seqlen;
+    int datalen = (int)strlen((const char *)utf8);
+    unsigned char *p = utf8;
+
+    if (datalen < 1 || *utf8 == 0) {		   // End of string
+        return NULL;
+    }
+    if (!(utf8[0] & 0x80)) {			   // 0xxxxxxx
+        *codepoint = (wchar_t) utf8[0];
+        seqlen = 1;
+    } else if ((utf8[0] & 0xE0) == 0xC0) {		   // 110xxxxx
+        *codepoint = (int)(((utf8[0] & 0x1F) << 6) | (utf8[1] & 0x3F));
+        seqlen = 2;
+    } else if ((utf8[0] & 0xF0) == 0xE0) {		   // 1110xxxx
+        *codepoint = (int)(((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F));
+        seqlen = 3;
+    } else {
+        return NULL;				   // No code points this high here
+    }
+    p += seqlen;
+    return p;
 }
 
 // createImageFromJpeg decompresses a JPEG image to the standard image format
@@ -200,6 +230,48 @@ void unloadfont(VGPath * glyphs, int n) {
     }
 }
 
+void evgSetClearColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
+    VGfloat colour[4];
+    RGBA(r, g, b, a, colour);
+    vgSetfv(VG_CLEAR_COLOR, 4, colour);
+}
+
+// setstroke sets the stroke color
+void evgSetStrokeColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
+    VGPaint strokePaint = vgCreatePaint();
+    VGfloat color[4];
+    RGBA(r, g, b, a, color);
+    vgSetParameteri(strokePaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
+    vgSetParameterfv(strokePaint, VG_PAINT_COLOR, 4, color);
+    vgSetPaint(strokePaint, VG_STROKE_PATH);
+    vgDestroyPaint(strokePaint);
+}
+
+// StrokeWidth sets the stroke width
+void evgSetStrokeWidth(VGfloat width) {
+    vgSetf(VG_STROKE_LINE_WIDTH, width);
+    vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_BUTT);
+    vgSeti(VG_STROKE_JOIN_STYLE, VG_JOIN_MITER);
+}
+
+/**
+ *
+ */
+void* evgReadScreen(int x, int y, int width, int height) {
+    void* buf = malloc(width * height * 4);
+    vgReadPixels(buf, width * 4, VG_sABGR_8888, x, y, width, height);
+    return buf;
+}
+
+/**
+ *
+ */
+void evgDumpScreen(int x, int y, int width, int height, FILE* fp) {
+    void* screenbuffer = evgReadScreen(x, y, width, height);
+    fwrite(screenbuffer, 1, width * height * 4, fp);
+    free(screenbuffer);
+}
+
 void evgDrawPath(VGPath path) {
     vgDrawPath(path, VG_STROKE_PATH);
 }
@@ -304,55 +376,6 @@ void evgScale(VGfloat x, VGfloat y) {
     vgScale(x, y);
 }
 
-
-// RGBA fills a color vectors from a RGBA quad.
-void RGBA(unsigned int r, unsigned int g, unsigned int b, VGfloat a, VGfloat color[4]) {
-    if (r > 255) {
-        r = 0;
-    }
-    if (g > 255) {
-        g = 0;
-    }
-    if (b > 255) {
-        b = 0;
-    }
-    if (a < 0.0 || a > 1.0) {
-        a = 1.0;
-    }
-    color[0] = (VGfloat) r / 255.0f;
-    color[1] = (VGfloat) g / 255.0f;
-    color[2] = (VGfloat) b / 255.0f;
-    color[3] = a;
-}
-
-// RGB returns a solid color from a RGB triple
-void RGB(unsigned int r, unsigned int g, unsigned int b, VGfloat color[4]) {
-    RGBA(r, g, b, 1.0f, color);
-}
-// next_utf_char handles UTF encoding
-unsigned char *next_utf8_char(unsigned char *utf8, int *codepoint) {
-    int seqlen;
-    int datalen = (int)strlen((const char *)utf8);
-    unsigned char *p = utf8;
-
-    if (datalen < 1 || *utf8 == 0) {		   // End of string
-        return NULL;
-    }
-    if (!(utf8[0] & 0x80)) {			   // 0xxxxxxx
-        *codepoint = (wchar_t) utf8[0];
-        seqlen = 1;
-    } else if ((utf8[0] & 0xE0) == 0xC0) {		   // 110xxxxx
-        *codepoint = (int)(((utf8[0] & 0x1F) << 6) | (utf8[1] & 0x3F));
-        seqlen = 2;
-    } else if ((utf8[0] & 0xF0) == 0xE0) {		   // 1110xxxx
-        *codepoint = (int)(((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F));
-        seqlen = 3;
-    } else {
-        return NULL;				   // No code points this high here
-    }
-    p += seqlen;
-    return p;
-}
 
 // TextWidth returns the width of a text string at the specified font and size.
 VGfloat TextWidth(const char *s, Fontinfo f, int pointsize) {
@@ -699,30 +722,6 @@ void evgEnd() {
     assert(vgGetError() == VG_NO_ERROR);
     eglSwapBuffers(state->display, state->surface);
     assert(eglGetError() == EGL_SUCCESS);
-}
-
-void evgSetClearColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
-    VGfloat colour[4];
-    RGBA(r, g, b, a, colour);
-    vgSetfv(VG_CLEAR_COLOR, 4, colour);
-}
-
-// setstroke sets the stroke color
-void evgSetStrokeColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
-    VGPaint strokePaint = vgCreatePaint();
-    VGfloat color[4];
-    RGBA(r, g, b, a, color);
-    vgSetParameteri(strokePaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
-    vgSetParameterfv(strokePaint, VG_PAINT_COLOR, 4, color);
-    vgSetPaint(strokePaint, VG_STROKE_PATH);
-    vgDestroyPaint(strokePaint);
-}
-
-// StrokeWidth sets the stroke width
-void evgSetStrokeWidth(VGfloat width) {
-    vgSetf(VG_STROKE_LINE_WIDTH, width);
-    vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_BUTT);
-    vgSeti(VG_STROKE_JOIN_STYLE, VG_JOIN_MITER);
 }
 
 // SaveEnd dumps the raster before rendering to the display
