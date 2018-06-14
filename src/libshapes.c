@@ -520,7 +520,7 @@ void evgFillText(VGfloat x, VGfloat y, const char* s, Fontinfo f, VGfloat pt) {
     vgLoadMatrix(mm);
 }
 
-void evgDrawTextAligned(VGfloat x, VGfloat y, const char* s, Fontinfo font, VGfloat size, int alignment) {
+void evgFillTextAligned(VGfloat x, VGfloat y, const char* s, Fontinfo font, VGfloat size, int alignment) {
     VGfloat text_width = TextWidth(s, font, size);
     int offset = -1;
 
