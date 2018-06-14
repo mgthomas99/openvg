@@ -59,9 +59,9 @@ extern "C" {
 	extern void evgScale(VGfloat, VGfloat);
 
 	extern void evgSetClearColor(unsigned int, unsigned int, unsigned int, VGfloat);
+	extern void evgSetFillColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgSetStrokeColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgSetStrokeWidth(VGfloat);
-	extern void evgSetFillColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgBegin();
     extern void evgClear();
 	extern void evgEnd();
