@@ -20,6 +20,25 @@
 #include "oglinit.h"
 #include "./../lib/DejaVuSans.inc"
 
+
+/**
+ *
+ */
+void* evgReadScreen(int x, int y, int width, int height) {
+    void* buf = malloc(width * height * 4);
+    vgReadPixels(buf, width * 4, VG_sABGR_8888, x, y, width, height);
+    return buf;
+}
+
+/**
+ *
+ */
+void evgDumpScreen(int x, int y, int width, int height, FILE* fp) {
+    void* screenbuffer = evgReadScreen(x, y, width, height);
+    fwrite(screenbuffer, 1, width * height * 4, fp);
+    free(screenbuffer);
+}
+
 // createImageFromJpeg decompresses a JPEG image to the standard image format
 // source: https://github.com/ileben/ShivaVG/blob/master/examples/test_image.c
 VGImage createImageFromJpeg(const char *filename) {
@@ -117,17 +136,6 @@ VGImage createImageFromJpeg(const char *filename) {
     return img;
 }
 
-// makeimage makes an image from a raw raster of red, green, blue, alpha values
-void makeimage(VGfloat x, VGfloat y, int w, int h, VGubyte * data) {
-    unsigned int dstride = w * 4;
-    VGImageFormat rgbaFormat = VG_sABGR_8888;
-    VGImage img = vgCreateImage(rgbaFormat, w, h, VG_IMAGE_QUALITY_BETTER);
-    vgImageSubData(img, (void *)data, dstride, rgbaFormat, 0, 0, w, h);
-    vgSetPixels(x, y, img, 0, 0, w, h);
-    vgDestroyImage(img);
-}
-
-
 static EVG_STATE_T _state, *state = &_state;	// global graphics state
 static const int MAXFONTPATH = 500;
 static int init_x = 0;		// Initial window position and size
@@ -141,25 +149,6 @@ static unsigned int init_h = 0;
 // terminal settings structures
 struct termios new_term_attr;
 struct termios orig_term_attr;
-
-// saveterm saves the current terminal settings
-void saveterm() {
-    tcgetattr(fileno(stdin), &orig_term_attr);
-}
-
-// rawterm sets the terminal to raw mode
-void rawterm() {
-    memcpy(&new_term_attr, &orig_term_attr, sizeof(struct termios));
-    new_term_attr.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | ECHOPRT | ECHOKE | ICRNL);
-    new_term_attr.c_cc[VTIME] = 0;
-    new_term_attr.c_cc[VMIN] = 0;
-    tcsetattr(fileno(stdin), TCSANOW, &new_term_attr);
-}
-
-// restore resets the terminal to the previously saved setting
-void restoreterm() {
-    tcsetattr(fileno(stdin), TCSANOW, &orig_term_attr);
-}
 
 //
 // Font functions
@@ -211,19 +200,27 @@ void unloadfont(VGPath * glyphs, int n) {
     }
 }
 
-// Image places an image at the specifed location
-void Image(VGfloat x, VGfloat y, int w, int h, const char *filename) {
-    VGImage img = createImageFromJpeg(filename);
-    vgSetPixels(x, y, img, 0, 0, w, h);
-    vgDestroyImage(img);
+void evgDrawPath(VGPath path) {
+    vgDrawPath(path, VG_STROKE_PATH);
 }
 
-// dumpscreen writes the raster
-void dumpscreen(int w, int h, FILE * fp) {
-    void *ScreenBuffer = malloc(w * h * 4);
-    vgReadPixels(ScreenBuffer, (w * 4), VG_sABGR_8888, 0, 0, w, h);
-    fwrite(ScreenBuffer, 1, w * h * 4, fp);
-    free(ScreenBuffer);
+void evgFillPath(VGPath path) {
+    vgDrawPath(path, VG_FILL_PATH);
+}
+
+// makeimage makes an image from a raw raster of red, green, blue, alpha values
+VGImage evgMakeImage(VGfloat x, VGfloat y, int w, int h, VGubyte* data) {
+    unsigned int dstride = w * 4;
+    VGImageFormat rgbaFormat = VG_sABGR_8888;
+    VGImage img = vgCreateImage(rgbaFormat, w, h, VG_IMAGE_QUALITY_BETTER);
+    vgImageSubData(img, (void*) data, dstride, rgbaFormat, 0, 0, w, h);
+    return img;
+}
+
+void evgDrawImage(VGfloat x, VGfloat y, int width, int height, VGubyte* data) {
+    VGImage img = evgMakeImage(x, y, width, height, data);
+    vgSetPixels(x, y, img, 0, 0, width, height);
+    vgDestroyImage(img);
 }
 
 Fontinfo SansTypeface;
@@ -471,7 +468,7 @@ void evgText(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) {
         };
         vgLoadMatrix(mm);
         vgMultMatrix(mat);
-        vgDrawPath(f.Glyphs[glyph], VG_FILL_PATH);
+        evgFillPath(f.Glyphs[glyph]);
         xx += size * f.GlyphAdvances[glyph] / 65536.0f;
     }
     vgLoadMatrix(mm);
@@ -496,6 +493,27 @@ VGfloat TextWidth(const char *s, Fontinfo f, int pointsize) {
     return tw;
 }
 
+// TextHeight reports a font's height
+VGfloat TextHeight(Fontinfo f, int pointsize) {
+    return (f.font_height * pointsize) / 65536;
+}
+
+// TextDepth reports a font's depth (how far under the baseline it goes)
+VGfloat TextDepth(Fontinfo f, int pointsize) {
+    return (-f.descender_height * pointsize) / 65536;
+}
+
+/**
+ * Creates a new {VGPath}.
+ *
+ * @return  {VGPath}
+ *          The {VGPath} that was created.
+ */
+VGPath evgNewPath() {
+    return vgCreatePath(VG_PATH_FORMAT_STANDARD, VG_PATH_DATATYPE_F,
+            1.0f, 0.0f, 0, 0, VG_PATH_CAPABILITY_APPEND_TO);
+}
+
 // TextMid draws text, centered on (x,y)
 void evgTextMid(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) {
     VGfloat tw = TextWidth(s, f, pointsize);
@@ -508,119 +526,172 @@ void evgTextEnd(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) 
     evgText(x - tw, y, s, f, pointsize);
 }
 
-// TextHeight reports a font's height
-VGfloat TextHeight(Fontinfo f, int pointsize) {
-    return (f.font_height * pointsize) / 65536;
-}
-
-// TextDepth reports a font's depth (how far under the baseline it goes)
-VGfloat TextDepth(Fontinfo f, int pointsize) {
-    return (-f.descender_height * pointsize) / 65536;
-}
-
-//
-// Shape functions
-//
-
-// newpath creates path data
-// Changed capabilities as others not needed at the moment - allows possible
-// driver optimisations.
-VGPath evgNewPath() {
-    return vgCreatePath(VG_PATH_FORMAT_STANDARD, VG_PATH_DATATYPE_F, 1.0f, 0.0f, 0, 0, VG_PATH_CAPABILITY_APPEND_TO);	// Other capabilities not needed
-}
-
-// makecurve makes path data using specified segments and coordinates
-void evgMakeCurve(VGubyte * segments, VGfloat * coords, VGbitfield flags) {
+VGPath evgMakeCurve(VGubyte* segments, VGfloat* coords) {
     VGPath path = evgNewPath();
     vgAppendPathData(path, 2, segments, coords);
-    vgDrawPath(path, flags);
+    return path;
+}
+
+void evgDrawCurve(VGubyte* segments, VGfloat* coords) {
+    VGPath path = evgMakeCurve(segments, coords);
+    evgDrawPath(path);
     vgDestroyPath(path);
 }
 
-// CBezier makes a quadratic bezier curve
-void evgCbezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat px, VGfloat py, VGfloat ex, VGfloat ey) {
+void evgFillCurve(VGubyte* segments, VGfloat* coords) {
+    VGPath path = evgMakeCurve(segments, coords);
+    evgFillPath(path);
+    vgDestroyPath(path);
+}
+
+VGPath evgMakeCBezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat px, VGfloat py, VGfloat ex, VGfloat ey) {
     VGubyte segments[] = { VG_MOVE_TO_ABS, VG_CUBIC_TO };
     VGfloat coords[] = { sx, sy, cx, cy, px, py, ex, ey };
-    evgMakeCurve(segments, coords, VG_FILL_PATH | VG_STROKE_PATH);
+    return evgMakeCurve(segments, coords);
 }
 
-// QBezier makes a quadratic bezier curve
-void evgQbezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat ex, VGfloat ey) {
+void evgDrawCBezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat px, VGfloat py, VGfloat ex, VGfloat ey) {
+    VGPath path = evgMakeCBezier(sx, sy, cx, cy, px, py, ex, ey);
+    evgDrawPath(path);
+    vgDestroyPath(path);
+}
+
+void evgFillCBezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat px, VGfloat py, VGfloat ex, VGfloat ey) {
+    VGPath path = evgMakeCBezier(sx, sy, cx, cy, px, py, ex, ey);
+    evgFillPath(path);
+    vgDestroyPath(path);
+}
+
+VGPath evgMakeQBezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat ex, VGfloat ey) {
     VGubyte segments[] = { VG_MOVE_TO_ABS, VG_QUAD_TO };
     VGfloat coords[] = { sx, sy, cx, cy, ex, ey };
-    evgMakeCurve(segments, coords, VG_FILL_PATH | VG_STROKE_PATH);
+    return evgMakeCurve(segments, coords);
 }
 
-// interleave interleaves arrays of x, y into a single array
-void interleave(VGfloat * x, VGfloat * y, int n, VGfloat * points) {
-    while (n--) {
-        *points++ = *x++;
-        *points++ = *y++;
-    }
+void evgDrawQBezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat ex, VGfloat ey) {
+    VGPath path = evgMakeQBezier(sx, sy, cx, cy, ex, ey);
+    evgDrawPath(path);
+    vgDestroyPath(path);
 }
 
-// poly makes either a polygon or polyline
-void evgPoly(VGfloat * x, VGfloat * y, VGint n, VGbitfield flag) {
-    VGfloat points[n * 2];
+void evgFillQbezier(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat ex, VGfloat ey) {
+    VGPath path = evgMakeQBezier(sx, sy, cx, cy, ex, ey);
+    evgFillPath(path);
+    vgDestroyPath(path);
+}
+
+VGPath evgMakePolygon(VGfloat* points, VGint n) {
     VGPath path = evgNewPath();
-    interleave(x, y, n, points);
     vguPolygon(path, points, n, VG_FALSE);
-    vgDrawPath(path, flag);
+    return path;
+}
+
+void evgDrawPolygon(VGfloat* points, VGint n) {
+    VGPath path = evgMakePolygon(points, n);
+    evgDrawPath(path);
     vgDestroyPath(path);
 }
 
-// Polygon makes a filled polygon with vertices in x, y arrays
-void evgPolygon(VGfloat * x, VGfloat * y, VGint n) {
-    evgPoly(x, y, n, VG_FILL_PATH);
+void evgFillPolygon(VGfloat* points, VGint n) {
+    VGPath path = evgMakePolygon(points, n);
+    evgFillPath(path);
+    vgDestroyPath(path);
 }
 
-// Polyline makes a polyline with vertices at x, y arrays
-void evgPolyline(VGfloat * x, VGfloat * y, VGint n) {
-    evgPoly(x, y, n, VG_STROKE_PATH);
-}
-
-// Rect makes a rectangle at the specified location and dimensions
-void evgRect(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
+VGPath evgMakeRect(VGfloat x, VGfloat y, VGfloat width, VGfloat height) {
     VGPath path = evgNewPath();
-    vguRect(path, x, y, w, h);
-    vgDrawPath(path, VG_FILL_PATH | VG_STROKE_PATH);
+    vguRect(path, x, y, width, height);
+    return path;
+}
+
+void evgDrawRect(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
+    VGPath path = evgMakeRect(x, y, w, h);
+    evgDrawPath(path);
     vgDestroyPath(path);
 }
 
-// Line makes a line from (x1,y1) to (x2,y2)
-void evgLine(VGfloat x1, VGfloat y1, VGfloat x2, VGfloat y2) {
+void evgFillRect(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
+    VGPath path = evgMakeRect(x, y, w, h);
+    evgFillPath(path);
+    vgDestroyPath(path);
+}
+
+VGPath evgMakeLine(VGfloat x1, VGfloat y1, VGfloat x2, VGfloat y2) {
     VGPath path = evgNewPath();
     vguLine(path, x1, y1, x2, y2);
-    vgDrawPath(path, VG_STROKE_PATH);
+    return path;
+}
+
+void evgDrawLine(VGfloat x1, VGfloat y1, VGfloat x2, VGfloat y2) {
+    VGPath path = evgNewPath(x1, y1, x2, y2);
+    evgDrawPath(path);
     vgDestroyPath(path);
 }
 
-// Roundrect makes an rounded rectangle at the specified location and dimensions
-void evgRoundRect(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat rw, VGfloat rh) {
+VGPath evgMakeRoundRect(VGfloat x, VGfloat y, VGfloat width, VGfloat height, VGfloat rw, VGfloat rh) {
     VGPath path = evgNewPath();
-    vguRoundRect(path, x, y, w, h, rw, rh);
-    vgDrawPath(path, VG_FILL_PATH | VG_STROKE_PATH);
+    vguRoundRect(path, x, y, width, height, rw, rh);
+    return path;
+}
+
+void evgDrawRoundRect(VGfloat x, VGfloat y, VGfloat width, VGfloat height, VGfloat rw, VGfloat rh) {
+    VGPath path = evgMakeRoundRect(x, y, width, height, rw, rh);
+    evgDrawPath(path);
     vgDestroyPath(path);
 }
 
-// Ellipse makes an ellipse at the specified location and dimensions
-void evgEllipse(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
+void evgFillRoundRect(VGfloat x, VGfloat y, VGfloat width, VGfloat height, VGfloat rw, VGfloat rh) {
+    VGPath path = evgMakeRoundRect(x, y, width, height, rw, rh);
+    evgFillPath(path);
+    vgDestroyPath(path);
+}
+
+VGPath evgMakeEllipse(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
     VGPath path = evgNewPath();
     vguEllipse(path, x, y, w, h);
-    vgDrawPath(path, VG_FILL_PATH | VG_STROKE_PATH);
+    return path;
+}
+
+void evgDrawEllipse(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
+    VGPath path = evgMakeEllipse(x, y, w, h);
+    evgDrawPath(path);
     vgDestroyPath(path);
 }
 
-// Circle makes a circle at the specified location and dimensions
-void evgCircle(VGfloat x, VGfloat y, VGfloat r) {
-    evgEllipse(x, y, r, r);
+void evgFillEllipse(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
+    VGPath path = evgMakeEllipse(x, y, w, h);
+    evgFillPath(path);
+    vgDestroyPath(path);
 }
 
-// Arc makes an elliptical arc at the specified location and dimensions
-void evgArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat aext) {
+VGPath evgMakeCircle(VGfloat x, VGfloat y, VGfloat radius) {
+    VGPath path = evgMakeEllipse(x, y, radius, radius);
+    return path;
+}
+
+void evgDrawCircle(VGfloat x, VGfloat y, VGfloat radius) {
+    evgDrawEllipse(x, y, radius, radius);
+}
+
+void evgFillCircle(VGfloat x, VGfloat y, VGfloat radius) {
+    evgFillEllipse(x, y, radius, radius);
+}
+
+VGPath evgMakeArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat aext) {
     VGPath path = evgNewPath();
     vguArc(path, x, y, w, h, sa, aext, VGU_ARC_OPEN);
-    vgDrawPath(path, VG_FILL_PATH | VG_STROKE_PATH);
+    return path;
+}
+
+void evgDrawArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat aext) {
+    VGPath path = evgMakeArc(x, y, w, h, sa, aext);
+    evgDrawPath(path);
+    vgDestroyPath(path);
+}
+
+void evgFillArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat aext) {
+    VGPath path = evgMakeArc(x, y, w, h, sa, aext);
+    evgFillPath(path);
     vgDestroyPath(path);
 }
 
@@ -645,11 +716,11 @@ void evgSaveEnd(const char *filename) {
     FILE *fp;
     assert(vgGetError() == VG_NO_ERROR);
     if (strlen(filename) == 0) {
-        dumpscreen(state->screen_width, state->screen_height, stdout);
+        evgDumpScreen(0, 0, state->screen_width, state->screen_height, stdout);
     } else {
         fp = fopen(filename, "wb");
         if (fp != NULL) {
-            dumpscreen(state->screen_width, state->screen_height, fp);
+            evgDumpScreen(0, 0, state->screen_width, state->screen_height, fp);
             fclose(fp);
         }
     }
@@ -681,60 +752,4 @@ void evgWindowOpacity(unsigned int a) {
 // WindowPosition moves the window to given position
 void WindowPosition(int x, int y) {
     dispmanMoveWindow(state, x, y);
-}
-
-// Outlined shapes
-// Hollow shapes -because filling still happens even with a fill of 0,0,0,0
-// unlike where using a strokewidth of 0 disables the stroke.
-// Either this or change the original functions to require the VG_x_PATH flags
-
-// CBezier makes a quadratic bezier curve, stroked
-void CbezierOutline(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat px, VGfloat py, VGfloat ex, VGfloat ey) {
-    VGubyte segments[] = { VG_MOVE_TO_ABS, VG_CUBIC_TO };
-    VGfloat coords[] = { sx, sy, cx, cy, px, py, ex, ey };
-    evgMakeCurve(segments, coords, VG_STROKE_PATH);
-}
-
-// QBezierOutline makes a quadratic bezier curve, outlined
-void QbezierOutline(VGfloat sx, VGfloat sy, VGfloat cx, VGfloat cy, VGfloat ex, VGfloat ey) {
-    VGubyte segments[] = { VG_MOVE_TO_ABS, VG_QUAD_TO };
-    VGfloat coords[] = { sx, sy, cx, cy, ex, ey };
-    evgMakeCurve(segments, coords, VG_STROKE_PATH);
-}
-
-// RectOutline makes a rectangle at the specified location and dimensions, outlined
-void RectOutline(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
-    VGPath path = evgNewPath();
-    vguRect(path, x, y, w, h);
-    vgDrawPath(path, VG_STROKE_PATH);
-    vgDestroyPath(path);
-}
-
-// RoundrectOutline  makes an rounded rectangle at the specified location and dimensions, outlined
-void RoundrectOutline(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat rw, VGfloat rh) {
-    VGPath path = evgNewPath();
-    vguRoundRect(path, x, y, w, h, rw, rh);
-    vgDrawPath(path, VG_STROKE_PATH);
-    vgDestroyPath(path);
-}
-
-// EllipseOutline makes an ellipse at the specified location and dimensions, outlined
-void EllipseOutline(VGfloat x, VGfloat y, VGfloat w, VGfloat h) {
-    VGPath path = evgNewPath();
-    vguEllipse(path, x, y, w, h);
-    vgDrawPath(path, VG_STROKE_PATH);
-    vgDestroyPath(path);
-}
-
-// CircleOutline makes a circle at the specified location and dimensions, outlined
-void CircleOutline(VGfloat x, VGfloat y, VGfloat r) {
-    EllipseOutline(x, y, r, r);
-}
-
-// ArcOutline makes an elliptical arc at the specified location and dimensions, outlined
-void ArcOutline(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat aext) {
-    VGPath path = evgNewPath();
-    vguArc(path, x, y, w, h, sa, aext, VGU_ARC_OPEN);
-    vgDrawPath(path, VG_STROKE_PATH);
-    vgDestroyPath(path);
 }
