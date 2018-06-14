@@ -1,3 +1,5 @@
+#include <EGL/egl.h>
+#include <bcm_host.h>
 
 /**
  *

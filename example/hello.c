@@ -3,8 +3,8 @@
 #include <unistd.h>
 #include "VG/openvg.h"
 #include "VG/vgu.h"
-#include "./../src/fontinfo.h"
-#include "./../src/libshapes.h"
+#include "./../lib/fontinfo.h"
+#include "./../lib/libshapes.h"
 
 int main() {
     const char msg[] = { 'H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', 0 };
