@@ -34,6 +34,8 @@ extern "C" {
 	extern void evgDrawCircle(VGfloat, VGfloat, VGfloat);
 	extern void evgDrawArc(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat);
 	extern void evgDrawImage(VGfloat, VGfloat, int, int, const VGubyte*);
+    extern void evgDrawTextAligned(VGfloat, VGfloat, const char*, Fontinfo, VGfloat, int);
+    extern void evgDrawText(VGfloat, VGfloat, const char*, Fontinfo, VGfloat);
 
     extern void evgFillCBezier(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat);
     extern void evgFillQBezier(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat);
@@ -46,27 +48,26 @@ extern "C" {
     extern void evgFillCircle(VGfloat, VGfloat, VGfloat);
     extern void evgFillArc(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat);
     extern void evgFillImage(VGfloat, VGfloat, int, int, const char*);
+    extern void evgFillTextAligned(VGfloat, VGfloat, const char*, Fontinfo, VGfloat, int);
+    extern void evgFillText(VGfloat, VGfloat, const char*, Fontinfo, VGfloat);
+    extern void evgFillLinearGradient(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat*, int);
+	extern void evgFillRadialGradient(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat*, int);
 
     extern void evgTranslate(VGfloat, VGfloat);
 	extern void evgRotate(VGfloat);
 	extern void evgShear(VGfloat, VGfloat);
 	extern void evgScale(VGfloat, VGfloat);
-	extern void evgText(VGfloat, VGfloat, const char*, Fontinfo, int);
-	extern void evgTextMid(VGfloat, VGfloat, const char*, Fontinfo, int);
-	extern void evgTextEnd(VGfloat, VGfloat, const char*, Fontinfo, int);
+
+	extern void evgSetClearColor(unsigned int, unsigned int, unsigned int, VGfloat);
+	extern void evgSetStrokeColor(unsigned int, unsigned int, unsigned int, VGfloat);
+	extern void evgSetStrokeWidth(VGfloat);
+	extern void evgSetFillColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgBegin();
     extern void evgClear();
 	extern void evgEnd();
 	extern void evgSaveEnd(const char*);
-	extern void evgSetClearColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgInit(int*, int*);
 	extern void evgFinish();
-	extern void evgSetStroke(VGfloat[4]);
-	extern void evgStrokeWidth(VGfloat);
-	extern void evgStroke(unsigned int, unsigned int, unsigned int, VGfloat);
-	extern void evgSetFillColor(unsigned int, unsigned int, unsigned int, VGfloat);
-	extern void evgFillLinearGradient(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat*, int);
-	extern void evgFillRadialGradient(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat*, int);
 	extern void evgClipRect(VGint x, VGint y, VGint w, VGint h);
 	extern void evgClipEnd();
 	extern void evgClearRect(unsigned int x, unsigned int y, unsigned int w, unsigned int h);

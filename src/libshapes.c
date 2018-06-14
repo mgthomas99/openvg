@@ -309,8 +309,10 @@ void evgScale(VGfloat x, VGfloat y) {
 //
 
 // setstroke sets the stroke color
-void evgSetStroke(VGfloat color[4]) {
+void evgSetStrokeColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
     VGPaint strokePaint = vgCreatePaint();
+    VGfloat color[4];
+    RGBA(r, g, b, a, color);
     vgSetParameteri(strokePaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
     vgSetParameterfv(strokePaint, VG_PAINT_COLOR, 4, color);
     vgSetPaint(strokePaint, VG_STROKE_PATH);
@@ -318,7 +320,7 @@ void evgSetStroke(VGfloat color[4]) {
 }
 
 // StrokeWidth sets the stroke width
-void evgStrokeWidth(VGfloat width) {
+void evgSetStrokeWidth(VGfloat width) {
     vgSetf(VG_STROKE_LINE_WIDTH, width);
     vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_BUTT);
     vgSeti(VG_STROKE_JOIN_STYLE, VG_JOIN_MITER);
@@ -352,13 +354,6 @@ void RGBA(unsigned int r, unsigned int g, unsigned int b, VGfloat a, VGfloat col
 // RGB returns a solid color from a RGB triple
 void RGB(unsigned int r, unsigned int g, unsigned int b, VGfloat color[4]) {
     RGBA(r, g, b, 1.0f, color);
-}
-
-// Stroke sets the stroke color, defined as a RGB triple.
-void evgStroke(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
-    VGfloat color[4];
-    RGBA(r, g, b, a, color);
-    evgSetStroke(color);
 }
 
 // Fill sets the fillcolor, defined as a RGBA quad.
@@ -441,13 +436,11 @@ unsigned char *next_utf8_char(unsigned char *utf8, int *codepoint) {
     return p;
 }
 
-// Text renders a string of text at a specified location, size, using the specified font glyphs
-// derived from http://web.archive.org/web/20070808195131/http://developer.hybrid.fi/font2openvg/renderFont.cpp.txt
-void evgText(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) {
-    VGfloat size = (VGfloat) pointsize, xx = x, mm[9];
+void evgDrawText(VGfloat x, VGfloat y, const char* s, Fontinfo f, VGfloat pt) {
+    VGfloat xx = x, mm[9];
     vgGetMatrix(mm);
     int character;
-    unsigned char *ss = (unsigned char *)s;
+    unsigned char *ss = (unsigned char*) s;
     while ((ss = next_utf8_char(ss, &character)) != NULL) {
         int glyph = f.CharacterMap[character];
         if (character >= MAXFONTPATH-1) {
@@ -457,16 +450,60 @@ void evgText(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) {
             continue;			   //glyph is undefined
         }
         VGfloat mat[9] = {
-            size, 0.0f, 0.0f,
-            0.0f, size, 0.0f,
+            pt, 0.0f, 0.0f,
+            0.0f, pt, 0.0f,
+            xx, y, 1.0f
+        };
+        vgLoadMatrix(mm);
+        vgMultMatrix(mat);
+        evgDrawPath(f.Glyphs[glyph]);
+        xx += pt * f.GlyphAdvances[glyph] / 65536.0f;
+    }
+    vgLoadMatrix(mm);
+}
+
+void evgDrawTextAligned(VGfloat x, VGfloat y, const char* s, Fontinfo font, VGfloat size, int alignment) {
+    VGfloat text_width = TextWidth(s, font, size);
+    int offset = -1;
+
+    if (alignment == 0) offset = - text_width / 2;
+    if (alignment == 1) offset = - text_width;
+    evgDrawText(x + offset, y, s, font, size);
+}
+
+void evgFillText(VGfloat x, VGfloat y, const char* s, Fontinfo f, VGfloat pt) {
+    VGfloat xx = x, mm[9];
+    vgGetMatrix(mm);
+    int character;
+    unsigned char *ss = (unsigned char*) s;
+    while ((ss = next_utf8_char(ss, &character)) != NULL) {
+        int glyph = f.CharacterMap[character];
+        if (character >= MAXFONTPATH-1) {
+            continue;
+        }
+        if (glyph == -1) {
+            continue;			   //glyph is undefined
+        }
+        VGfloat mat[9] = {
+            pt, 0.0f, 0.0f,
+            0.0f, pt, 0.0f,
             xx, y, 1.0f
         };
         vgLoadMatrix(mm);
         vgMultMatrix(mat);
         evgFillPath(f.Glyphs[glyph]);
-        xx += size * f.GlyphAdvances[glyph] / 65536.0f;
+        xx += pt * f.GlyphAdvances[glyph] / 65536.0f;
     }
     vgLoadMatrix(mm);
+}
+
+void evgDrawTextAligned(VGfloat x, VGfloat y, const char* s, Fontinfo font, VGfloat size, int alignment) {
+    VGfloat text_width = TextWidth(s, font, size);
+    int offset = -1;
+
+    if (alignment == 0) offset = - text_width / 2;
+    if (alignment == 1) offset = - text_width;
+    evgFillText(x + offset, y, s, font, size);
 }
 
 // TextWidth returns the width of a text string at the specified font and size.
@@ -507,18 +544,6 @@ VGfloat TextDepth(Fontinfo f, int pointsize) {
 VGPath evgNewPath() {
     return vgCreatePath(VG_PATH_FORMAT_STANDARD, VG_PATH_DATATYPE_F,
             1.0f, 0.0f, 0, 0, VG_PATH_CAPABILITY_APPEND_TO);
-}
-
-// TextMid draws text, centered on (x,y)
-void evgTextMid(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) {
-    VGfloat tw = TextWidth(s, f, pointsize);
-    evgText(x - (tw / 2.0), y, s, f, pointsize);
-}
-
-// TextEnd draws text, with its end aligned to (x,y)
-void evgTextEnd(VGfloat x, VGfloat y, const char *s, Fontinfo f, int pointsize) {
-    VGfloat tw = TextWidth(s, f, pointsize);
-    evgText(x - tw, y, s, f, pointsize);
 }
 
 VGPath evgMakeCurve(VGubyte* segments, VGfloat* coords) {
@@ -693,8 +718,8 @@ void evgFillArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat 
 // Start begins the picture, clearing a rectangular region with a specified color
 void evgBegin() {
     evgSetFillColor(0, 0, 0, 1.0f);
-    evgSetStroke(color);
-    evgStrokeWidth(0);
+    evgSetStrokeColor(color);
+    evgSetStrokeWidth(0);
     vgLoadIdentity();
 }
 
