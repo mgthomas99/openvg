@@ -304,32 +304,6 @@ void evgScale(VGfloat x, VGfloat y) {
     vgScale(x, y);
 }
 
-//
-// Style functions
-//
-
-// setstroke sets the stroke color
-void evgSetStrokeColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
-    VGPaint strokePaint = vgCreatePaint();
-    VGfloat color[4];
-    RGBA(r, g, b, a, color);
-    vgSetParameteri(strokePaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
-    vgSetParameterfv(strokePaint, VG_PAINT_COLOR, 4, color);
-    vgSetPaint(strokePaint, VG_STROKE_PATH);
-    vgDestroyPaint(strokePaint);
-}
-
-// StrokeWidth sets the stroke width
-void evgSetStrokeWidth(VGfloat width) {
-    vgSetf(VG_STROKE_LINE_WIDTH, width);
-    vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_BUTT);
-    vgSeti(VG_STROKE_JOIN_STYLE, VG_JOIN_MITER);
-}
-
-//
-// Color functions
-//
-//
 
 // RGBA fills a color vectors from a RGBA quad.
 void RGBA(unsigned int r, unsigned int g, unsigned int b, VGfloat a, VGfloat color[4]) {
@@ -354,6 +328,59 @@ void RGBA(unsigned int r, unsigned int g, unsigned int b, VGfloat a, VGfloat col
 // RGB returns a solid color from a RGB triple
 void RGB(unsigned int r, unsigned int g, unsigned int b, VGfloat color[4]) {
     RGBA(r, g, b, 1.0f, color);
+}
+// next_utf_char handles UTF encoding
+unsigned char *next_utf8_char(unsigned char *utf8, int *codepoint) {
+    int seqlen;
+    int datalen = (int)strlen((const char *)utf8);
+    unsigned char *p = utf8;
+
+    if (datalen < 1 || *utf8 == 0) {		   // End of string
+        return NULL;
+    }
+    if (!(utf8[0] & 0x80)) {			   // 0xxxxxxx
+        *codepoint = (wchar_t) utf8[0];
+        seqlen = 1;
+    } else if ((utf8[0] & 0xE0) == 0xC0) {		   // 110xxxxx
+        *codepoint = (int)(((utf8[0] & 0x1F) << 6) | (utf8[1] & 0x3F));
+        seqlen = 2;
+    } else if ((utf8[0] & 0xF0) == 0xE0) {		   // 1110xxxx
+        *codepoint = (int)(((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F));
+        seqlen = 3;
+    } else {
+        return NULL;				   // No code points this high here
+    }
+    p += seqlen;
+    return p;
+}
+
+// TextWidth returns the width of a text string at the specified font and size.
+VGfloat TextWidth(const char *s, Fontinfo f, int pointsize) {
+    VGfloat tw = 0.0;
+    VGfloat size = (VGfloat) pointsize;
+    int character;
+    unsigned char *ss = (unsigned char *)s;
+    while ((ss = next_utf8_char(ss, &character)) != NULL) {
+        int glyph = f.CharacterMap[character];
+        if (character >= MAXFONTPATH-1) {
+            continue;
+        }
+        if (glyph == -1) {
+            continue;			   //glyph is undefined
+        }
+        tw += size * f.GlyphAdvances[glyph] / 65536.0f;
+    }
+    return tw;
+}
+
+// TextHeight reports a font's height
+VGfloat TextHeight(Fontinfo f, int pointsize) {
+    return (f.font_height * pointsize) / 65536;
+}
+
+// TextDepth reports a font's depth (how far under the baseline it goes)
+VGfloat TextDepth(Fontinfo f, int pointsize) {
+    return (-f.descender_height * pointsize) / 65536;
 }
 
 // Fill sets the fillcolor, defined as a RGBA quad.
@@ -407,33 +434,6 @@ void evgClipRect(VGint x, VGint y, VGint w, VGint h) {
 // ClipEnd stops limiting drawing area to specified rectangle
 void evgClipEnd() {
     vgSeti(VG_SCISSORING, VG_FALSE);
-}
-
-// Text Functions
-
-// next_utf_char handles UTF encoding
-unsigned char *next_utf8_char(unsigned char *utf8, int *codepoint) {
-    int seqlen;
-    int datalen = (int)strlen((const char *)utf8);
-    unsigned char *p = utf8;
-
-    if (datalen < 1 || *utf8 == 0) {		   // End of string
-        return NULL;
-    }
-    if (!(utf8[0] & 0x80)) {			   // 0xxxxxxx
-        *codepoint = (wchar_t) utf8[0];
-        seqlen = 1;
-    } else if ((utf8[0] & 0xE0) == 0xC0) {		   // 110xxxxx
-        *codepoint = (int)(((utf8[0] & 0x1F) << 6) | (utf8[1] & 0x3F));
-        seqlen = 2;
-    } else if ((utf8[0] & 0xF0) == 0xE0) {		   // 1110xxxx
-        *codepoint = (int)(((utf8[0] & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F));
-        seqlen = 3;
-    } else {
-        return NULL;				   // No code points this high here
-    }
-    p += seqlen;
-    return p;
 }
 
 void evgDrawText(VGfloat x, VGfloat y, const char* s, Fontinfo f, VGfloat pt) {
@@ -504,35 +504,6 @@ void evgDrawTextAligned(VGfloat x, VGfloat y, const char* s, Fontinfo font, VGfl
     if (alignment == 0) offset = - text_width / 2;
     if (alignment == 1) offset = - text_width;
     evgFillText(x + offset, y, s, font, size);
-}
-
-// TextWidth returns the width of a text string at the specified font and size.
-VGfloat TextWidth(const char *s, Fontinfo f, int pointsize) {
-    VGfloat tw = 0.0;
-    VGfloat size = (VGfloat) pointsize;
-    int character;
-    unsigned char *ss = (unsigned char *)s;
-    while ((ss = next_utf8_char(ss, &character)) != NULL) {
-        int glyph = f.CharacterMap[character];
-        if (character >= MAXFONTPATH-1) {
-            continue;
-        }
-        if (glyph == -1) {
-            continue;			   //glyph is undefined
-        }
-        tw += size * f.GlyphAdvances[glyph] / 65536.0f;
-    }
-    return tw;
-}
-
-// TextHeight reports a font's height
-VGfloat TextHeight(Fontinfo f, int pointsize) {
-    return (f.font_height * pointsize) / 65536;
-}
-
-// TextDepth reports a font's depth (how far under the baseline it goes)
-VGfloat TextDepth(Fontinfo f, int pointsize) {
-    return (-f.descender_height * pointsize) / 65536;
 }
 
 /**
@@ -718,7 +689,7 @@ void evgFillArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat 
 // Start begins the picture, clearing a rectangular region with a specified color
 void evgBegin() {
     evgSetFillColor(0, 0, 0, 1.0f);
-    evgSetStrokeColor(color);
+    evgSetStrokeColor(0, 0, 0, 1.0f);
     evgSetStrokeWidth(0);
     vgLoadIdentity();
 }
@@ -732,8 +703,26 @@ void evgEnd() {
 
 void evgSetClearColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
     VGfloat colour[4];
-    RBGA(r, g, b, a, colour);
+    RGBA(r, g, b, a, colour);
     vgSetfv(VG_CLEAR_COLOR, 4, colour);
+}
+
+// setstroke sets the stroke color
+void evgSetStrokeColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
+    VGPaint strokePaint = vgCreatePaint();
+    VGfloat color[4];
+    RGBA(r, g, b, a, color);
+    vgSetParameteri(strokePaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
+    vgSetParameterfv(strokePaint, VG_PAINT_COLOR, 4, color);
+    vgSetPaint(strokePaint, VG_STROKE_PATH);
+    vgDestroyPaint(strokePaint);
+}
+
+// StrokeWidth sets the stroke width
+void evgSetStrokeWidth(VGfloat width) {
+    vgSetf(VG_STROKE_LINE_WIDTH, width);
+    vgSeti(VG_STROKE_CAP_STYLE, VG_CAP_BUTT);
+    vgSeti(VG_STROKE_JOIN_STYLE, VG_JOIN_MITER);
 }
 
 // SaveEnd dumps the raster before rendering to the display
