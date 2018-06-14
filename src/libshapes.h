@@ -58,15 +58,13 @@ extern "C" {
     extern void evgClear();
 	extern void evgEnd();
 	extern void evgSaveEnd(const char*);
-	extern void evgBackground(unsigned int, unsigned int, unsigned int);
-	extern void evgBackgroundRGB(unsigned int, unsigned int, unsigned int, VGfloat);
+	extern void evgSetClearColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgInit(int*, int*);
 	extern void evgFinish();
-	extern void evgSetFill(VGfloat[4]);
 	extern void evgSetStroke(VGfloat[4]);
 	extern void evgStrokeWidth(VGfloat);
 	extern void evgStroke(unsigned int, unsigned int, unsigned int, VGfloat);
-	extern void evgFill(unsigned int, unsigned int, unsigned int, VGfloat);
+	extern void evgSetFillColor(unsigned int, unsigned int, unsigned int, VGfloat);
 	extern void evgFillLinearGradient(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat*, int);
 	extern void evgFillRadialGradient(VGfloat, VGfloat, VGfloat, VGfloat, VGfloat, VGfloat*, int);
 	extern void evgClipRect(VGint x, VGint y, VGint w, VGint h);

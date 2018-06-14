@@ -308,15 +308,6 @@ void evgScale(VGfloat x, VGfloat y) {
 // Style functions
 //
 
-// setfill sets the fill color
-void evgSetFill(VGfloat color[4]) {
-    VGPaint fillPaint = vgCreatePaint();
-    vgSetParameteri(fillPaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
-    vgSetParameterfv(fillPaint, VG_PAINT_COLOR, 4, color);
-    vgSetPaint(fillPaint, VG_FILL_PATH);
-    vgDestroyPaint(fillPaint);
-}
-
 // setstroke sets the stroke color
 void evgSetStroke(VGfloat color[4]) {
     VGPaint strokePaint = vgCreatePaint();
@@ -371,10 +362,14 @@ void evgStroke(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
 }
 
 // Fill sets the fillcolor, defined as a RGBA quad.
-void evgFill(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
+void evgSetFillColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
+    VGPaint fillPaint = vgCreatePaint();
     VGfloat color[4];
     RGBA(r, g, b, a, color);
-    evgSetFill(color);
+    vgSetParameteri(fillPaint, VG_PAINT_TYPE, VG_PAINT_TYPE_COLOR);
+    vgSetParameterfv(fillPaint, VG_PAINT_COLOR, 4, color);
+    vgSetPaint(fillPaint, VG_FILL_PATH);
+    vgDestroyPaint(fillPaint);
 }
 
 // setstops sets color stops for gradients
@@ -697,8 +692,7 @@ void evgFillArc(VGfloat x, VGfloat y, VGfloat w, VGfloat h, VGfloat sa, VGfloat 
 
 // Start begins the picture, clearing a rectangular region with a specified color
 void evgBegin() {
-    VGfloat color[4] = { 0, 0, 0, 1 };
-    evgSetFill(color);
+    evgSetFillColor(0, 0, 0, 1.0f);
     evgSetStroke(color);
     evgStrokeWidth(0);
     vgLoadIdentity();
@@ -709,6 +703,12 @@ void evgEnd() {
     assert(vgGetError() == VG_NO_ERROR);
     eglSwapBuffers(state->display, state->surface);
     assert(eglGetError() == EGL_SUCCESS);
+}
+
+void evgSetClearColor(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
+    VGfloat colour[4];
+    RBGA(r, g, b, a, colour);
+    vgSetfv(VG_CLEAR_COLOR, 4, colour);
 }
 
 // SaveEnd dumps the raster before rendering to the display
@@ -726,22 +726,6 @@ void evgSaveEnd(const char *filename) {
     }
     eglSwapBuffers(state->display, state->surface);
     assert(eglGetError() == EGL_SUCCESS);
-}
-
-// Backgroud clears the screen to a solid background color
-void evgBackground(unsigned int r, unsigned int g, unsigned int b) {
-    VGfloat colour[4];
-    RGB(r, g, b, colour);
-    vgSetfv(VG_CLEAR_COLOR, 4, colour);
-    evgClear();
-}
-
-// BackgroundRGB clears the screen to a background color with alpha
-void evgBackgroundRGB(unsigned int r, unsigned int g, unsigned int b, VGfloat a) {
-    VGfloat colour[4];
-    RGBA(r, g, b, a, colour);
-    vgSetfv(VG_CLEAR_COLOR, 4, colour);
-    evgClear();
 }
 
 // WindowOpacity sets the  window opacity
