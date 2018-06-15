@@ -11,8 +11,8 @@ install:	lib	src
 	ln -f -s /usr/lib/libshapes.so.1.0.0 /usr/lib/libshapes.so
 	ln -f -s /usr/lib/libshapes.so.1.0.0 /usr/lib/libshapes.so.1
 	ln -f -s /usr/lib/libshapes.so.1.0.0 /usr/lib/libshapes.so.1.0
-	install -m 644 -p ./src/libshapes.h /usr/include/
-	install -m 644 -p ./src/fontinfo.h /usr/include/
+	install -m 644 -p ./lib/libshapes.h /usr/include/
+	install -m 644 -p ./lib/fontinfo.h /usr/include/
 
 uninstall:
 	rm -f /usr/bin/font2openvg
@@ -26,7 +26,7 @@ uninstall:
 build-dir:
 	mkdir -p "./build/"
 
-libshapes:	./src/libshapes.c	./src/libshapes.h	./src/fontinfo.h	build-dir	fonts
+libshapes:	./src/libshapes.c	./lib/libshapes.h	./lib/fontinfo.h	build-dir	fonts
 	gcc -O2 -Wall $(GCC_INCLUDEFLAGS) -c ./src/libshapes.c -o ./build/libshapes.o
 
 oglinit:	./src/oglinit.c	build-dir
@@ -35,8 +35,13 @@ oglinit:	./src/oglinit.c	build-dir
 libs:	lib
 lib:	font2openvg	font
 
-font2openvg:	./lib/font2openvg.cpp
-	g++ -I/usr/include/freetype2 lib/font2openvg.cpp -o lib/font2openvg -lfreetype
+font2openvg:	./lib/font2openvg
+	git clone https://github.com/mgthomas99/font2openvg
+	cd font2openvg
+	make
+	cd ..
+	mv font2openvg/build/font2openvg ./lib/font2openvg
+	rm -rf font2openvg
 
 fonts:	font
 font:	/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf	font2openvg
