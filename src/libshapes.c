@@ -16,8 +16,8 @@
 #include "VG/openvg.h"
 #include "VG/vgu.h"
 #include "bcm_host.h"
-#include "fontinfo.h"
-#include "oglinit.h"
+#include "./../lib/fontinfo.h"
+#include "./../lib/oglinit.h"
 #include "./../lib/DejaVuSans.inc"
 
 // RGBA fills a color vectors from a RGBA quad.
